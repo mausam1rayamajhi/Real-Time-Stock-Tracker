@@ -1,0 +1,27 @@
+.search-results {
+    padding: 1rem;
+    text-align: center;
+  }
+  
+  .stock-card {
+    background-color: #1e1e1e;
+    padding: 1rem;
+    margin: 1rem auto;
+    border-radius: 8px;
+    max-width: 400px;
+    color: #fff;
+    border: 1px solid #333;
+  }
+  .stock-charts {
+    margin-top: 40px;
+    padding: 20px;
+    background-color: #1e1e1e;
+    border-radius: 10px;
+    box-shadow: 0 0 10px #00000044;
+  }
+  
+  /* Adding horizontal scroll if chart is too wide */
+  .recharts-responsive-container {
+    overflow-x: auto;
+  }
+  
