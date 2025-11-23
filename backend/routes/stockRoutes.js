@@ -27,7 +27,9 @@ router.get("/quote/:symbol", async (req, res) => {
 
     // data.c = current price, data.pc = previous close
     if (typeof data.c !== "number") {
-      return res.status(500).json({ error: "Invalid quote data from Finnhub." });
+      return res
+        .status(500)
+        .json({ error: "Invalid quote data from Finnhub." });
     }
 
     let percentChange = null;
@@ -128,15 +130,20 @@ router.get("/chartdata/:symbol", async (req, res) => {
  * Shape matches what your frontend expects: { o, h, l, c, v, t, s }
  */
 router.get("/candles/:symbol", async (req, res) => {
-  try {
-    const symbol = req.params.symbol.toUpperCase();
+  const symbol = req.params.symbol.toUpperCase();
 
+  try {
     if (!API_KEY) {
+      console.error("❌ FINNHUB_API_KEY is missing in environment");
       return res.status(500).json({ error: "Missing FINNHUB_API_KEY" });
     }
 
     const now = Math.floor(Date.now() / 1000);
     const from = now - 30 * 24 * 60 * 60; // 30 days back
+
+    console.log(
+      `📈 Fetching daily candles for ${symbol} from Finnhub: from=${from}, to=${now}`
+    );
 
     const { data } = await axios.get(`${FINN}/stock/candle`, {
       params: {
@@ -148,9 +155,15 @@ router.get("/candles/:symbol", async (req, res) => {
       },
     });
 
-    if (data.s !== "ok" || !Array.isArray(data.t) || data.t.length === 0) {
-      console.warn("⚠️ No daily candle data for", symbol, data.s);
-      return res.status(404).json({ error: "No candle data found" });
+    console.log("Finnhub /stock/candle response status:", data && data.s);
+
+    // Finnhub returns: { c, h, l, o, v, t, s:"ok" | "no_data" }
+    if (!data || data.s !== "ok" || !Array.isArray(data.t) || data.t.length === 0) {
+      console.warn("⚠️ No candle data from Finnhub for", symbol, data && data.s);
+      return res.status(404).json({
+        error: "No candle data found for symbol",
+        status: data && data.s,
+      });
     }
 
     return res.json({
@@ -163,8 +176,13 @@ router.get("/candles/:symbol", async (req, res) => {
       s: "ok",
     });
   } catch (err) {
-    console.error("Daily candles error:", err.response?.data || err.message);
-    res.status(500).json({ error: "Failed to fetch candle data" });
+    const payload = err.response?.data || err.message || String(err);
+    console.error("🔥 /api/candles error for", symbol, payload);
+
+    return res.status(500).json({
+      error: "Failed to fetch candle data",
+      details: payload,
+    });
   }
 });
 
