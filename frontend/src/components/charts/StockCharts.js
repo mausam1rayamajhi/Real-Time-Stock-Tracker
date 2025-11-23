@@ -14,10 +14,11 @@ import {
   Line,
 } from "recharts";
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
+const API_BASE_URL =
+  process.env.REACT_APP_API_BASE_URL ||
+  "https://real-time-stock-tracker-backend.onrender.com";
 
 const StockCharts = ({ symbol: propSymbol }) => {
-  // You can pass symbol as a prop OR get it from the URL (/stock/:symbol)
   const routeParams = useParams();
   const symbol = propSymbol || routeParams.symbol;
 
@@ -26,16 +27,17 @@ const StockCharts = ({ symbol: propSymbol }) => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!user || !symbol) return;
+    if (!symbol) return;
+    if (!user) return; // keep your login requirement
 
     const fetchCandles = async () => {
       try {
         setError("");
         setData([]);
 
+        console.log("📈 Fetching candles for", symbol, "from", API_BASE_URL);
         const res = await axios.get(`${API_BASE_URL}/api/candles/${symbol}`);
-
-        const candles = res.data; // { o, h, l, c, v, t, s }
+        const candles = res.data; // { o, h, l, c, v, t }
 
         if (!candles || !Array.isArray(candles.t) || candles.t.length === 0) {
           setError("No candle data available.");
@@ -45,10 +47,9 @@ const StockCharts = ({ symbol: propSymbol }) => {
         const { o, h, l, c, v, t } = candles;
 
         const chartData = t.map((ts, i) => {
-          // ts can be seconds, ms, or ISO string – normalize to JS Date
           let dateMs;
           if (typeof ts === "number") {
-            dateMs = ts < 1e12 ? ts * 1000 : ts; // seconds → ms
+            dateMs = ts < 1e12 ? ts * 1000 : ts;
           } else {
             dateMs = Date.parse(ts);
           }
@@ -69,6 +70,7 @@ const StockCharts = ({ symbol: propSymbol }) => {
           };
         });
 
+        console.log("✅ Candle points:", chartData.length);
         setData(chartData);
       } catch (err) {
         console.error("Error loading candle data:", err);
@@ -80,7 +82,7 @@ const StockCharts = ({ symbol: propSymbol }) => {
   }, [symbol, user]);
 
   if (!user) {
-    return <p style={{ padding: "1rem" }}>🔐 Please log in to view charts.</p>;
+    return <p style={{ padding: "1rem" }}>Please log in to view charts.</p>;
   }
 
   if (error) {
@@ -97,39 +99,16 @@ const StockCharts = ({ symbol: propSymbol }) => {
 
   return (
     <div style={{ padding: "1rem" }}>
-      <h2>{symbol} – Daily Price & Volume (Real Data)</h2>
+      <h2>{symbol} – Daily Price &amp; Volume (Real Data)</h2>
       <ResponsiveContainer width="100%" height={320}>
         <ComposedChart data={data}>
           <CartesianGrid stroke="#444" />
           <XAxis dataKey="date" />
-          <YAxis
-            yAxisId="left"
-            orientation="right"
-            domain={["auto", "auto"]}
-          />
-          <YAxis
-            yAxisId="right"
-            orientation="left"
-            hide
-            domain={["auto", "auto"]}
-          />
+          <YAxis yAxisId="left" orientation="right" domain={["auto", "auto"]} />
+          <YAxis yAxisId="right" orientation="left" hide domain={["auto", "auto"]} />
           <Tooltip />
-
-          {/* Volume as bars */}
-          <Bar
-            yAxisId="right"
-            dataKey="volume"
-            barSize={16}
-            opacity={0.35}
-          />
-
-          {/* Close price as line */}
-          <Line
-            yAxisId="left"
-            type="monotone"
-            dataKey="close"
-            dot={false}
-          />
+          <Bar yAxisId="right" dataKey="volume" barSize={16} opacity={0.35} />
+          <Line yAxisId="left" type="monotone" dataKey="close" dot={false} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>

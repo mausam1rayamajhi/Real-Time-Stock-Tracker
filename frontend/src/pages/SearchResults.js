@@ -6,7 +6,10 @@ import CompanyInfo from "../components/stocks/CompanyInfo";
 import StockCard from "../components/stocks/StockCard";
 import "./SearchResults.css";
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_UR || "";
+// ✅ Fallback to your Render backend if env is missing
+const API_BASE_URL =
+  process.env.REACT_APP_API_BASE_URL ||
+  "https://real-time-stock-tracker-backend.onrender.com";
 
 const SearchResults = () => {
   const { symbol } = useParams();
@@ -14,11 +17,14 @@ const SearchResults = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!symbol) return;
+
     const fetchData = async () => {
       try {
         setError("");
         setPriceData(null);
 
+        console.log("🔍 Fetching quote for", symbol, "from", API_BASE_URL);
         const res = await fetch(`${API_BASE_URL}/api/quote/${symbol}`);
 
         if (!res.ok) {
@@ -28,11 +34,16 @@ const SearchResults = () => {
         }
 
         const data = await res.json();
+        console.log("✅ Quote data:", data);
 
-        if (data && typeof data.price === "number" && !isNaN(data.price)) {
+        const priceNum = Number(data.price);
+        const changeNum =
+          data.percentChange !== undefined ? Number(data.percentChange) : null;
+
+        if (!Number.isNaN(priceNum)) {
           setPriceData({
-            price: data.price,
-            percentChange: data.percentChange,
+            price: priceNum,
+            percentChange: changeNum,
           });
         } else {
           setError("Received invalid price data.");
@@ -63,6 +74,7 @@ const SearchResults = () => {
         !error && <p>Loading price data...</p>
       )}
 
+      {/* These components have their own loading/error states */}
       <CompanyInfo symbol={symbol} />
 
       <div className="stock-charts">
