@@ -6,7 +6,8 @@ const yahooFinance = require("yahoo-finance2").default;
 
 const router = express.Router();
 
-// Finnhub config
+
+// Finnhub config (for quote/profile/search)
 const API_KEY = process.env.FINNHUB_API_KEY;
 const FINN = "https://finnhub.io/api/v1";
 
@@ -86,49 +87,12 @@ router.get("/search/:query", async (req, res) => {
   }
 });
 
-/**
- * GET /api/chartdata/:symbol
- * Intraday 1-minute candles (last 60 minutes) – Finnhub (optional)
- */
-router.get("/chartdata/:symbol", async (req, res) => {
-  try {
-    const { symbol } = req.params;
-    const to = Math.floor(Date.now() / 1000);
-    const from = to - 60 * 60; // last 60 minutes
-
-    const { data } = await axios.get(`${FINN}/stock/candle`, {
-      params: {
-        symbol,
-        resolution: "1",
-        from,
-        to,
-        token: API_KEY,
-      },
-    });
-
-    if (data.s !== "ok" || !Array.isArray(data.t)) {
-      return res.status(400).json({ error: "No intraday data available." });
-    }
-
-    res.json({
-      o: data.o,
-      h: data.h,
-      l: data.l,
-      c: data.c,
-      v: data.v,
-      t: data.t,
-      s: data.s,
-    });
-  } catch (err) {
-    console.error("Intraday candles error:", err.response?.data || err.message);
-    res.status(500).json({ error: "Failed to fetch intraday candles." });
-  }
-});
+// Daily candles (last ~30 days) from Yahoo Finance
 
 /**
  * GET /api/candles/:symbol
- * Daily candles (last 60 days) – Yahoo Finance (NO Finnhub key needed)
- * Shape matches what your frontend expects: { o, h, l, c, v, t, s }
+ * Daily OHLCV for ~last 30 days – Yahoo Finance
+ * Returns { o, h, l, c, v, t, s } to match your frontend
  */
 router.get("/candles/:symbol", async (req, res) => {
   const symbol = req.params.symbol.toUpperCase();
@@ -136,11 +100,10 @@ router.get("/candles/:symbol", async (req, res) => {
   try {
     console.log(`📈 Fetching daily candles for ${symbol} from Yahoo Finance`);
 
-    // Last ~60 days
-    const period2 = new Date();
-    const period1 = new Date(period2.getTime() - 60 * 24 * 60 * 60 * 1000);
+    // Last ~30 days
+    const period2 = new Date(); // now
+    const period1 = new Date(period2.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // yahoo-finance2 historical data
     const results = await yahooFinance.historical(symbol, {
       period1,
       period2,
