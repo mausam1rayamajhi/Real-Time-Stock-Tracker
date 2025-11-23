@@ -72,9 +72,9 @@ const WishlistView = () => {
                 <strong>{data?.name || symbol}</strong>{' '}
                 {data ? (
                   <>
-                    — ${data.price}{' '}
+                    — ${data.price?.toFixed(2)}{' '}
                     <span style={{ color: data.percentChange >= 0 ? 'lightgreen' : 'salmon' }}>
-                      {data.percentChange >= 0 ? '▲' : '▼'} {data.percentChange}%
+                      {data.percentChange >= 0 ? '▲' : '▼'} {data.percentChange.toFixed(2)}%
                     </span>
                   </>
                 ) : (
