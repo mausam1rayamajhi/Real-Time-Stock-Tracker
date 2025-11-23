@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./components/ui/Navbar";
 import Home from "./pages/Home";
 import SearchResults from "./pages/SearchResults";
+import Login from "./components/auth/Login";
 import { UserProvider } from "./UserContext";
 
 function App() {
@@ -12,19 +13,22 @@ function App() {
     <UserProvider>
       <Router>
         <Navbar />
-        <Routes>
-          {/* Home page with the watchlist cards */}
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
+        {/* Optional padding so content isn't jammed against edges / navbar */}
+        <main style={{ padding: "1rem" }}>
+          <Routes>
+            {/* Home page with the watchlist cards */}
+            <Route path="/" element={<Home />} />
 
+            {/* Auth */}
+            <Route path="/login" element={<Login />} />
 
-          {/* Stock details + chart page */}
-          <Route path="/search/:symbol" element={<SearchResults />} />
+            {/* Stock details + chart page */}
+            <Route path="/search/:symbol" element={<SearchResults />} />
 
-          {/* Optional: catch-all for unknown routes */}
-          {/* <Route path="*" element={<Home />} /> */}
-          {/* <Route path="*" element={<p style={{ padding: '2rem' }}>Page not found</p>} /> */}
-        </Routes>
+            {/* Optional catch-all */}
+            {/* <Route path="*" element={<Home />} /> */}
+          </Routes>
+        </main>
       </Router>
     </UserProvider>
   );

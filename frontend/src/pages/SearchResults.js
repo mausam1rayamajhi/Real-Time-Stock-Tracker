@@ -1,12 +1,13 @@
 // frontend/src/pages/SearchResults.js
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+
 import StockCharts from "../components/charts/StockCharts";
 import CompanyInfo from "../components/stocks/CompanyInfo";
 import StockCard from "../components/stocks/StockCard";
+
 import "./SearchResults.css";
 
-// Fallback to your Render backend if env is missing
 const API_BASE_URL =
   process.env.REACT_APP_API_BASE_URL ||
   "https://real-time-stock-tracker-backend.onrender.com";
@@ -25,31 +26,34 @@ const SearchResults = () => {
         setPriceData(null);
 
         console.log("🔍 Fetching quote for", symbol, "from", API_BASE_URL);
-        const res = await fetch(`${API_BASE_URL}/api/quote/${symbol}`);
 
-        if (!res.ok) {
-          console.error("Quote fetch failed with status:", res.status);
+        const response = await fetch(`${API_BASE_URL}/api/quote/${symbol}`);
+
+        if (!response.ok) {
+          console.error(" Quote fetch failed:", response.status);
           setError("Unable to load price data for this symbol.");
           return;
         }
 
-        const data = await res.json();
-        console.log("✅ Quote data:", data);
+        const data = await response.json();
+        console.log(" Quote data:", data);
 
-        const priceNum = Number(data.price);
-        const changeNum =
-          data.percentChange !== undefined ? Number(data.percentChange) : null;
+        const priceNumber = Number(data.price);
+        const changeNumber =
+          data.percentChange !== undefined
+            ? Number(data.percentChange)
+            : null;
 
-        if (!Number.isNaN(priceNum)) {
+        if (!Number.isNaN(priceNumber)) {
           setPriceData({
-            price: priceNum,
-            percentChange: changeNum,
+            price: priceNumber,
+            percentChange: changeNumber,
           });
         } else {
-          setError("Received invalid price data.");
+          setError("Received invalid price data from backend.");
         }
       } catch (err) {
-        console.error("Fetching error:", err);
+        console.error("🔥 Fetching error:", err);
         setError("Error contacting backend.");
       }
     };
@@ -74,9 +78,10 @@ const SearchResults = () => {
         !error && <p>Loading price data...</p>
       )}
 
-      {/* These components have their own loading/error states */}
+      {/* Company Info Section */}
       <CompanyInfo symbol={symbol} />
 
+      {/* Charts Section */}
       <div className="stock-charts">
         <StockCharts symbol={symbol} />
       </div>
