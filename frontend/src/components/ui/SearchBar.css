@@ -7,7 +7,7 @@
   .search-bar input {
     padding: 0.5rem;
     font-size: 1rem;
-    background-color: #1e1e1e;
+    background-color: lab(81.96% 3.76 -18.39);
     border: 1px solid #555;
     color: #fff;
     border-radius: 4px;
@@ -16,7 +16,7 @@
   .search-bar button {
     padding: 0.5rem 1rem;
     margin-left: 0.5rem;
-    background-color: #333;
+    background-color: #217ded;
     color: #fff;
     border: 1px solid #555;
     border-radius: 4px;
