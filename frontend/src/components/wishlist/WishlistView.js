@@ -55,6 +55,8 @@ const WishlistView = () => {
 
     if (wishlist.length > 0) {
       fetchDetails();
+    } else {
+      setStockDetails({});
     }
   }, [wishlist]);
 
@@ -67,15 +69,31 @@ const WishlistView = () => {
         <ul>
           {wishlist.map((symbol) => {
             const data = stockDetails[symbol];
+
+            // Safely coerce to numbers
+            const price = data ? Number(data.price) : NaN;
+            const change = data ? Number(data.percentChange) : NaN;
+
+            const hasPrice = !Number.isNaN(price);
+            const hasChange = !Number.isNaN(change);
+            const isPositive = hasChange && change >= 0;
+
             return (
               <li key={symbol} style={{ marginBottom: '1rem' }}>
                 <strong>{data?.name || symbol}</strong>{' '}
                 {data ? (
                   <>
-                    — ${data.price?.toFixed(2)}{' '}
-                    <span style={{ color: data.percentChange >= 0 ? 'lightgreen' : 'salmon' }}>
-                      {data.percentChange >= 0 ? '▲' : '▼'} {data.percentChange.toFixed(2)}%
-                    </span>
+                    {hasPrice && (
+                      <>
+                        — ${price.toFixed(2)}{' '}
+                      </>
+                    )}
+                    {hasChange && (
+                      <span style={{ color: isPositive ? 'lightgreen' : 'salmon' }}>
+                        {isPositive ? '▲' : '▼'} {change.toFixed(2)}%
+                      </span>
+                    )}
+                    {!hasPrice && !hasChange && <span>Data unavailable</span>}
                   </>
                 ) : (
                   <span>Loading...</span>
