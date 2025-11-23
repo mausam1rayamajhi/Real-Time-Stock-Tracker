@@ -33,7 +33,7 @@ const WishlistView = () => {
         wishlist.map(async (symbol) => {
           try {
             const [stockRes, profileRes] = await Promise.all([
-              axios.get(`/api/stock/${symbol}`),
+              axios.get(`/api/quote/${symbol}`),
               axios.get(`/api/profile/${symbol}`)
             ]);
 

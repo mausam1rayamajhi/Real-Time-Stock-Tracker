@@ -1,25 +1,28 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import './SearchBar.css';
+// frontend/src/components/ui/SearchBar.js
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import "./SearchBar.css";
 
 const SearchBar = () => {
-  const [symbol, setSymbol] = useState('');
+  const [query, setQuery] = useState("");
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const onSubmit = (e) => {
     e.preventDefault();
-    if (symbol.trim() !== '') {
-      navigate(`/search/${symbol.trim().toUpperCase()}`);
-    }
+    const trimmed = query.trim();
+    if (!trimmed) return;
+
+    const symbol = trimmed.toUpperCase();
+    navigate(`/stock/${symbol}`);
   };
 
   return (
-    <form className="search-bar" onSubmit={handleSubmit}>
+    <form className="search-bar" onSubmit={onSubmit}>
       <input
         type="text"
-        value={symbol}
-        onChange={(e) => setSymbol(e.target.value)}
-        placeholder="Enter stock symbol (e.g. AAPL)"
+        placeholder="Search by ticker (e.g., AAPL)"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
       />
       <button type="submit">Search</button>
     </form>

@@ -18,7 +18,7 @@ const Home = () => {
       const promises = symbolsToFetch.map(async (symbol) => {
         try {
           const response = await axios.get(
-            `${API_BASE_URL}/api/stock/${symbol}`
+            `${API_BASE_URL}/api/quote/${symbol}`
           );
           return {
             symbol,
