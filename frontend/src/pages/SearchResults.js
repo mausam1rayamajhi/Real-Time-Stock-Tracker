@@ -62,11 +62,12 @@ const SearchResults = () => {
   }, [symbol]);
 
   return (
-    <div className="search-results">
-      <h1 style={{ color: "#90caf9" }}>Stock Viewer: {symbol}</h1>
+  <div className="search-results">
+    <h1 className="search-results-title">Stock Viewer: {symbol}</h1>
 
-      {error && <p style={{ color: "salmon" }}>{error}</p>}
+    {error && <p className="search-results-error">{error}</p>}
 
+    <div className="search-results-header">
       {priceData ? (
         <StockCard
           symbol={symbol}
@@ -78,15 +79,15 @@ const SearchResults = () => {
         !error && <p>Loading price data...</p>
       )}
 
-      {/* Company Info Section */}
+      {/* Company info next to / under the card, but centered */}
       <CompanyInfo symbol={symbol} />
-
-      {/* Charts Section */}
-      <div className="stock-charts">
-        <StockCharts symbol={symbol} />
-      </div>
     </div>
-  );
+
+    <div className="stock-charts">
+      <StockCharts symbol={symbol} />
+    </div>
+  </div>
+);
 };
 
 export default SearchResults;

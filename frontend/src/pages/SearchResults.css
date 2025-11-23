@@ -1,27 +1,56 @@
+/* Page background + base layout */
 .search-results {
-    padding: 1rem;
-    text-align: center;
+  min-height: 100vh;
+  padding: 2rem 1.5rem 3rem;
+  background: radial-gradient(circle at top, #e0f2fe 0, #f9fafb 45%, #eef2ff 100%);
+  color: #0f172a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Title */
+.search-results-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #38bdf8; /* bright cyan/blue */
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+/* Error text */
+.search-results-error {
+  color: #f97373;
+  margin-bottom: 1rem;
+}
+
+/* Top area: card + company info centered */
+.search-results-header {
+  display: flex;
+  flex-direction: column;          /* stacked on mobile */
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 960px;
+  margin-bottom: 2rem;
+}
+
+/* On larger screens, put them side-by-side but still centered */
+@media (min-width: 900px) {
+  .search-results-header {
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
   }
-  
-  .stock-card {
-    background-color: #1e1e1e;
-    padding: 1rem;
-    margin: 1rem auto;
-    border-radius: 8px;
-    max-width: 400px;
-    color: #fff;
-    border: 1px solid #333;
-  }
-  .stock-charts {
-    margin-top: 40px;
-    padding: 20px;
-    background-color: #1e1e1e;
-    border-radius: 10px;
-    box-shadow: 0 0 10px #00000044;
-  }
-  
-  /* Adding horizontal scroll if chart is too wide */
-  .recharts-responsive-container {
-    overflow-x: auto;
-  }
-  
+}
+
+/* Chart container “card” */
+.stock-charts {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+  padding: 1.5rem;
+}
