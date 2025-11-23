@@ -6,7 +6,7 @@ import CompanyInfo from "../components/stocks/CompanyInfo";
 import StockCard from "../components/stocks/StockCard";
 import "./SearchResults.css";
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
 const SearchResults = () => {
   const { symbol } = useParams();

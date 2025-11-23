@@ -1,26 +1,26 @@
 // frontend/src/components/ui/SearchBar.js
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "./SearchBar.css";
+import "./SearchBar.css"; // optional – only if you create this file
 
 const SearchBar = () => {
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
 
-  const onSubmit = (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    const trimmed = query.trim();
+    const trimmed = query.trim().toUpperCase();
     if (!trimmed) return;
 
-    const symbol = trimmed.toUpperCase();
-    navigate(`/stock/${symbol}`);
+    // Navigate to the SearchResults page, which will load data for this symbol
+    navigate(`/search/${trimmed}`);
   };
 
   return (
-    <form className="search-bar" onSubmit={onSubmit}>
+    <form className="search-bar" onSubmit={handleSubmit}>
       <input
         type="text"
-        placeholder="Search by ticker (e.g., AAPL)"
+        placeholder="Search by symbol (e.g., AAPL, NVDA)"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />

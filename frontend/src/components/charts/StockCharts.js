@@ -33,17 +33,11 @@ const StockCharts = ({ symbol: propSymbol }) => {
         setError("");
         setData([]);
 
-        const res = await axios.get(
-          `${API_BASE_URL}/api/candles/${symbol}`
-        );
+        const res = await axios.get(`${API_BASE_URL}/api/candles/${symbol}`);
 
         const candles = res.data; // { o, h, l, c, v, t, s }
 
-        if (
-          !candles ||
-          !Array.isArray(candles.t) ||
-          candles.t.length === 0
-        ) {
+        if (!candles || !Array.isArray(candles.t) || candles.t.length === 0) {
           setError("No candle data available.");
           return;
         }
@@ -86,11 +80,7 @@ const StockCharts = ({ symbol: propSymbol }) => {
   }, [symbol, user]);
 
   if (!user) {
-    return (
-      <p style={{ padding: "1rem" }}>
-        🔐 Please log in to view charts.
-      </p>
-    );
+    return <p style={{ padding: "1rem" }}>🔐 Please log in to view charts.</p>;
   }
 
   if (error) {
@@ -102,11 +92,7 @@ const StockCharts = ({ symbol: propSymbol }) => {
   }
 
   if (data.length === 0) {
-    return (
-      <p style={{ padding: "1rem" }}>
-        Loading chart...
-      </p>
-    );
+    return <p style={{ padding: "1rem" }}>Loading chart...</p>;
   }
 
   return (
