@@ -2,18 +2,21 @@
 
 const express = require("express");
 const axios = require("axios");
-const yahooFinance = require("yahoo-finance2").default;
 
 const router = express.Router();
 
+// Finnhub config
 const API_KEY = process.env.FINNHUB_API_KEY;
 const FINN = "https://finnhub.io/api/v1";
 
 if (!API_KEY) {
-  console.warn(" FINNHUB_API_KEY is not set. Finnhub routes will fail.");
+  console.warn("⚠️ FINNHUB_API_KEY is not set. Finnhub routes will fail.");
 }
 
-//  Quote Endpoint (Finnhub)
+/**
+ * GET /api/quote/:symbol
+ * Current price + percent change (Finnhub)
+ */
 router.get("/quote/:symbol", async (req, res) => {
   try {
     const { symbol } = req.params;
@@ -42,7 +45,10 @@ router.get("/quote/:symbol", async (req, res) => {
   }
 });
 
-// Company Profile (Finnhub)
+/**
+ * GET /api/profile/:symbol
+ * Company profile (Finnhub)
+ */
 router.get("/profile/:symbol", async (req, res) => {
   try {
     const { symbol } = req.params;
@@ -58,7 +64,10 @@ router.get("/profile/:symbol", async (req, res) => {
   }
 });
 
-// 🔵 Search by Company Name / Symbol (Finnhub)
+/**
+ * GET /api/search/:query
+ * Search by symbol or company name (Finnhub)
+ */
 router.get("/search/:query", async (req, res) => {
   try {
     const { query } = req.params;
@@ -74,7 +83,10 @@ router.get("/search/:query", async (req, res) => {
   }
 });
 
-// 🟣 Intraday 1-Min Candles (Finnhub)
+/**
+ * GET /api/chartdata/:symbol
+ * Intraday 1-minute candles (last 60 minutes) – Finnhub
+ */
 router.get("/chartdata/:symbol", async (req, res) => {
   try {
     const { symbol } = req.params;
@@ -110,59 +122,50 @@ router.get("/chartdata/:symbol", async (req, res) => {
   }
 });
 
-
-//  Daily Candles via yahoo-finance2 (using historical())
+/**
+ * GET /api/candles/:symbol
+ * Daily candles (last 30 days) – Finnhub
+ * Shape matches what your frontend expects: { o, h, l, c, v, t, s }
+ */
 router.get("/candles/:symbol", async (req, res) => {
   try {
-    const { symbol } = req.params;
+    const symbol = req.params.symbol.toUpperCase();
 
-    // Last 30 days
-    const period2 = new Date();
-    const period1 = new Date(period2.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-    // yahooFinance.v2 -> use historical()
-    const results = await yahooFinance.historical(symbol, {
-      period1,
-      period2,
-      interval: "1d",
-    });
-
-    if (!Array.isArray(results) || results.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "No daily candle data available." });
+    if (!API_KEY) {
+      return res.status(500).json({ error: "Missing FINNHUB_API_KEY" });
     }
 
-    // Convert array of objects into arrays (o,h,l,c,v,t) like a "candles" response
-    const o = [];
-    const h = [];
-    const l = [];
-    const c = [];
-    const v = [];
-    const t = [];
+    const now = Math.floor(Date.now() / 1000);
+    const from = now - 30 * 24 * 60 * 60; // 30 days back
 
-    results.forEach((bar) => {
-      o.push(bar.open);
-      h.push(bar.high);
-      l.push(bar.low);
-      c.push(bar.close);
-      v.push(bar.volume);
-      // send seconds since epoch (frontend turns into dates)
-      t.push(Math.floor(new Date(bar.date).getTime() / 1000));
+    const { data } = await axios.get(`${FINN}/stock/candle`, {
+      params: {
+        symbol,
+        resolution: "D",
+        from,
+        to: now,
+        token: API_KEY,
+      },
     });
 
-    res.json({
-      o,
-      h,
-      l,
-      c,
-      v,
-      t,
+    if (data.s !== "ok" || !Array.isArray(data.t) || data.t.length === 0) {
+      console.warn("⚠️ No daily candle data for", symbol, data.s);
+      return res.status(404).json({ error: "No candle data found" });
+    }
+
+    return res.json({
+      o: data.o,
+      h: data.h,
+      l: data.l,
+      c: data.c,
+      v: data.v,
+      t: data.t,
       s: "ok",
     });
   } catch (err) {
     console.error("Daily candles error:", err.response?.data || err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Failed to fetch candle data" });
   }
 });
+
 module.exports = router;
