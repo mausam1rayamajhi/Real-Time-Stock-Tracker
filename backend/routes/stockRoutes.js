@@ -2,6 +2,7 @@
 
 const express = require("express");
 const axios = require("axios");
+const yahooFinance = require("yahoo-finance2").default;
 
 const router = express.Router();
 
@@ -87,7 +88,7 @@ router.get("/search/:query", async (req, res) => {
 
 /**
  * GET /api/chartdata/:symbol
- * Intraday 1-minute candles (last 60 minutes) – Finnhub
+ * Intraday 1-minute candles (last 60 minutes) – Finnhub (optional)
  */
 router.get("/chartdata/:symbol", async (req, res) => {
   try {
@@ -126,62 +127,63 @@ router.get("/chartdata/:symbol", async (req, res) => {
 
 /**
  * GET /api/candles/:symbol
- * Daily candles (last 30 days) – Finnhub
+ * Daily candles (last 60 days) – Yahoo Finance (NO Finnhub key needed)
  * Shape matches what your frontend expects: { o, h, l, c, v, t, s }
  */
 router.get("/candles/:symbol", async (req, res) => {
   const symbol = req.params.symbol.toUpperCase();
 
   try {
-    if (!API_KEY) {
-      console.error("❌ FINNHUB_API_KEY is missing in environment");
-      return res.status(500).json({ error: "Missing FINNHUB_API_KEY" });
-    }
+    console.log(`📈 Fetching daily candles for ${symbol} from Yahoo Finance`);
 
-    const now = Math.floor(Date.now() / 1000);
-    const from = now - 30 * 24 * 60 * 60; // 30 days back
+    // Last ~60 days
+    const period2 = new Date();
+    const period1 = new Date(period2.getTime() - 60 * 24 * 60 * 60 * 1000);
 
-    console.log(
-      `📈 Fetching daily candles for ${symbol} from Finnhub: from=${from}, to=${now}`
-    );
-
-    const { data } = await axios.get(`${FINN}/stock/candle`, {
-      params: {
-        symbol,
-        resolution: "D",
-        from,
-        to: now,
-        token: API_KEY,
-      },
+    // yahoo-finance2 historical data
+    const results = await yahooFinance.historical(symbol, {
+      period1,
+      period2,
+      interval: "1d",
     });
 
-    console.log("Finnhub /stock/candle response status:", data && data.s);
-
-    // Finnhub returns: { c, h, l, o, v, t, s:"ok" | "no_data" }
-    if (!data || data.s !== "ok" || !Array.isArray(data.t) || data.t.length === 0) {
-      console.warn("⚠️ No candle data from Finnhub for", symbol, data && data.s);
-      return res.status(404).json({
-        error: "No candle data found for symbol",
-        status: data && data.s,
-      });
+    if (!Array.isArray(results) || results.length === 0) {
+      console.warn("⚠️ No historical data from Yahoo for", symbol);
+      return res
+        .status(404)
+        .json({ error: "No daily candle data available for symbol." });
     }
 
+    const o = [];
+    const h = [];
+    const l = [];
+    const c = [];
+    const v = [];
+    const t = [];
+
+    results.forEach((bar) => {
+      o.push(bar.open);
+      h.push(bar.high);
+      l.push(bar.low);
+      c.push(bar.close);
+      v.push(bar.volume);
+      t.push(Math.floor(new Date(bar.date).getTime() / 1000)); // seconds since epoch
+    });
+
     return res.json({
-      o: data.o,
-      h: data.h,
-      l: data.l,
-      c: data.c,
-      v: data.v,
-      t: data.t,
+      o,
+      h,
+      l,
+      c,
+      v,
+      t,
       s: "ok",
     });
   } catch (err) {
-    const payload = err.response?.data || err.message || String(err);
-    console.error("🔥 /api/candles error for", symbol, payload);
-
+    console.error("Daily candles error (Yahoo):", err.message || err);
     return res.status(500).json({
-      error: "Failed to fetch candle data",
-      details: payload,
+      error: "Failed to fetch daily candle data from Yahoo Finance.",
+      details: err.message || String(err),
     });
   }
 });
