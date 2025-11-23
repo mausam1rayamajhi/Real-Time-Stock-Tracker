@@ -4,6 +4,8 @@ import { db } from '../../firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import axios from 'axios';
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "";
+
 const WishlistView = () => {
   const { user } = useContext(UserContext);
   const [wishlist, setWishlist] = useState([]);
@@ -33,8 +35,8 @@ const WishlistView = () => {
         wishlist.map(async (symbol) => {
           try {
             const [stockRes, profileRes] = await Promise.all([
-              axios.get(`/api/quote/${symbol}`),
-              axios.get(`/api/profile/${symbol}`)
+              axios.get(`${API_BASE_URL}/api/quote/${symbol}`),
+              axios.get(`${API_BASE_URL}/api/profile/${symbol}`)
             ]);
 
             results[symbol] = {
@@ -57,8 +59,8 @@ const WishlistView = () => {
   }, [wishlist]);
 
   return (
-<div style={{ padding: '1rem', background: '#1e3a8a', color: 'white', borderRadius: '8px' }}>
-<h2>Your Watchlist</h2>
+    <div style={{ padding: '1rem', background: '#1e3a8a', color: 'white', borderRadius: '8px' }}>
+      <h2>Your Watchlist</h2>
       {wishlist.length === 0 ? (
         <p>No stocks in watchlist.</p>
       ) : (
@@ -71,7 +73,7 @@ const WishlistView = () => {
                 {data ? (
                   <>
                     — ${data.price}{' '}
-                    <span style={{ color: data.percentChange >= 0 ? 'green' : 'red' }}>
+                    <span style={{ color: data.percentChange >= 0 ? 'lightgreen' : 'salmon' }}>
                       {data.percentChange >= 0 ? '▲' : '▼'} {data.percentChange}%
                     </span>
                   </>
