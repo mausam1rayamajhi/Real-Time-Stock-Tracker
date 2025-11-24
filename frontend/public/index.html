@@ -2,15 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+
+    <!-- Favicon -->
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#e3f2fd" />
+
     <meta
       name="description"
       content="Real-Time Stock Tracker Application"
     />
+
     <title>Real-Time Stock Tracker</title>
+    <!-- This prevents SSR errors and guarantees `window.LightweightCharts` exists -->
+    <script 
+      src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"
+      defer>
+    </script>
   </head>
+
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>

@@ -7,7 +7,6 @@ import React, {
   useState,
 } from "react";
 import { useParams } from "react-router-dom";
-import { createChart } from "lightweight-charts";
 import { UserContext } from "../../UserContext";
 
 const API_BASE_URL =
@@ -46,14 +45,19 @@ const StockCharts = ({
   const [error, setError] = useState("");
   const [source, setSource] = useState("");
 
-  // 1️⃣ Create chart once
+  // 1️⃣ Create chart once (browser-only, via window.LightweightCharts)
   useEffect(() => {
-    // container not mounted yet
     if (!containerRef.current) return;
-    // already created
-    if (chartRef.current) return;
+    if (chartRef.current) return; // already created (StrictMode double-call)
 
-    const chart = createChart(containerRef.current, {
+    const LW = window.LightweightCharts;
+    if (!LW || typeof LW.createChart !== "function") {
+      console.error("LightweightCharts global not found");
+      setError("Chart library failed to load.");
+      return;
+    }
+
+    const chart = LW.createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
       height: 400,
       layout: {
@@ -89,8 +93,8 @@ const StockCharts = ({
     setChartReady(true);
 
     const handleResize = () => {
-      if (!containerRef.current) return;
-      chart.applyOptions({
+      if (!containerRef.current || !chartRef.current) return;
+      chartRef.current.applyOptions({
         width: containerRef.current.clientWidth,
       });
     };
@@ -130,13 +134,39 @@ const StockCharts = ({
 
         const data = await res.json();
 
-        if (!data.candles || data.candles.length === 0) {
+        // Support both formats:
+        // 1) { candles: [{time,open,high,low,close,volume}, ...] }
+        // 2) { o, h, l, c, v, t } arrays
+        let candles = data.candles;
+
+        if (!candles && Array.isArray(data.t)) {
+          const { o, h, l, c, v, t } = data;
+          candles = t.map((ts, i) => {
+            let timeSec;
+            if (typeof ts === "number") {
+              timeSec = ts < 1e12 ? ts : Math.floor(ts / 1000);
+            } else {
+              timeSec = Math.floor(new Date(ts).getTime() / 1000);
+            }
+
+            return {
+              time: timeSec,
+              open: o[i],
+              high: h[i],
+              low: l[i],
+              close: c[i],
+              volume: v ? v[i] : undefined,
+            };
+          });
+        }
+
+        if (!candles || candles.length === 0) {
           setError("No candle data available.");
           return;
         }
 
         setSource(data.source || "");
-        seriesRef.current.setData(data.candles);
+        seriesRef.current.setData(candles);
         chartRef.current.timeScale().fitContent();
       } catch (err) {
         console.error("Error loading candle data:", err);
@@ -149,7 +179,7 @@ const StockCharts = ({
     fetchCandles();
   }, [symbol, range, resolution, chartReady]);
 
-  // Require login (same behavior you had)
+  // Require login (same as before)
   if (!user) {
     return (
       <div style={cardStyle}>
@@ -166,7 +196,7 @@ const StockCharts = ({
 
       {source && (
         <small style={{ opacity: 0.7 }}>
-          Source: {source === "cache" ? "Cached (server)" : "Live (Finnhub)"}
+          Source: {source === "cache" ? "Cached (server)" : "Live"}
         </small>
       )}
 
