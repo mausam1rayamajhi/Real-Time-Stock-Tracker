@@ -7,7 +7,7 @@ import React, {
   useState,
 } from "react";
 import { useParams } from "react-router-dom";
-import { createChart } from "lightweight-charts";
+import * as LightweightCharts from "lightweight-charts";
 import { UserContext } from "../../UserContext";
 
 const API_BASE_URL =
@@ -33,10 +33,9 @@ const StockCharts = ({
   range = "6M",
   resolution = "D",
 }) => {
+  const { user } = useContext(UserContext);
   const routeParams = useParams();
   const symbol = (propSymbol || routeParams.symbol || "").toUpperCase();
-
-  const { user } = useContext(UserContext);
 
   const containerRef = useRef(null);
   const chartRef = useRef(null);
@@ -46,79 +45,74 @@ const StockCharts = ({
   const [error, setError] = useState("");
   const [source, setSource] = useState("");
 
-  // Create chart once
+  // 🚀 CREATE CHART — inside useEffect ONLY
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || chartRef.current) return;
 
-    if (!chartRef.current) {
-      const chart = createChart(containerRef.current, {
+    const chart = LightweightCharts.createChart(containerRef.current, {
+      width: containerRef.current.clientWidth,
+      height: 400,
+      layout: {
+        background: { type: "solid", color: "rgba(0,0,0,0)" },
+        textColor: "#003366",
+      },
+      grid: {
+        vertLines: { color: "rgba(0,0,0,0.05)" },
+        horzLines: { color: "rgba(0,0,0,0.05)" },
+      },
+      rightPriceScale: {
+        borderColor: "rgba(0,0,0,0.15)",
+      },
+      timeScale: {
+        borderColor: "rgba(0,0,0,0.15)",
+      },
+      crosshair: {
+        mode: 1,
+      },
+    });
+
+    const candleSeries = chart.addCandlestickSeries({
+      upColor: "#16a34a",
+      downColor: "#dc2626",
+      borderUpColor: "#16a34a",
+      borderDownColor: "#dc2626",
+      wickUpColor: "#16a34a",
+      wickDownColor: "#dc2626",
+    });
+
+    chartRef.current = chart;
+    seriesRef.current = candleSeries;
+
+    // Handle resizing
+    const handleResize = () => {
+      chart.applyOptions({
         width: containerRef.current.clientWidth,
-        height: 400,
-        layout: {
-          background: { type: "solid", color: "rgba(0,0,0,0)" },
-          textColor: "#003366",
-        },
-        grid: {
-          vertLines: { color: "rgba(0,0,0,0.05)" },
-          horzLines: { color: "rgba(0,0,0,0.05)" },
-        },
-        rightPriceScale: {
-          borderColor: "rgba(0,0,0,0.15)",
-        },
-        timeScale: {
-          borderColor: "rgba(0,0,0,0.15)",
-        },
-        crosshair: {
-          mode: 1,
-        },
       });
+    };
 
-      const candleSeries = chart.addCandlestickSeries({
-        upColor: "#16a34a",
-        downColor: "#dc2626",
-        borderUpColor: "#16a34a",
-        borderDownColor: "#dc2626",
-        wickUpColor: "#16a34a",
-        wickDownColor: "#dc2626",
-      });
+    window.addEventListener("resize", handleResize);
 
-      chartRef.current = chart;
-      seriesRef.current = candleSeries;
-
-      const handleResize = () => {
-        if (containerRef.current && chartRef.current) {
-          chartRef.current.applyOptions({
-            width: containerRef.current.clientWidth,
-          });
-        }
-      };
-
-      window.addEventListener("resize", handleResize);
-
-      return () => {
-        window.removeEventListener("resize", handleResize);
-        chart.remove();
-      };
-    }
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chart.remove();
+    };
   }, []);
 
-  // Fetch candle data when symbol/range/resolution changes
+  // 🚀 FETCH CANDLES
   useEffect(() => {
-    const fetchCandles = async () => {
-      if (!symbol || !chartRef.current || !seriesRef.current) return;
+    const load = async () => {
+      if (!symbol || !seriesRef.current) return;
+
+      setLoading(true);
+      setError("");
 
       try {
-        setLoading(true);
-        setError("");
-        setSource("");
-
         const res = await fetch(
           `${API_BASE_URL}/api/candles/${symbol}?resolution=${resolution}&range=${range}`
         );
 
         if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || "Failed to load candle data.");
+          throw new Error("Failed to load candle data.");
         }
 
         const data = await res.json();
@@ -130,66 +124,41 @@ const StockCharts = ({
 
         setSource(data.source || "");
 
-        // data.candles is already in the correct format for lightweight-charts
         seriesRef.current.setData(data.candles);
         chartRef.current.timeScale().fitContent();
       } catch (err) {
-        console.error("Error loading candle data:", err);
+        console.error(err);
         setError(err.message || "Unable to load chart data.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchCandles();
+    load();
   }, [symbol, range, resolution]);
 
-  // Respect your existing "login required" behavior
   if (!user) {
     return (
       <div style={cardStyle}>
-        <p style={{ padding: "0.5rem" }}>
-          Please log in to view charts.
-        </p>
+        <p>Please log in to view charts.</p>
       </div>
     );
   }
 
   return (
     <div style={cardStyle}>
-      <div
-        style={{
-          marginBottom: "0.75rem",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-          gap: "0.75rem",
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0, fontSize: "1.1rem" }}>
-            {symbol || "—"} – Candlestick Chart ({range}, {resolution})
-          </h2>
-          {source && (
-            <small style={{ opacity: 0.7 }}>
-              Data source:{" "}
-              {source === "cache" ? "Cached (server)" : "Live (Finnhub)"}
-            </small>
-          )}
-        </div>
+      <h2>
+        {symbol} – Candlestick Chart ({range}, {resolution})
+      </h2>
 
-        {/* Future: you can add range/resolution selectors here */}
-      </div>
+      {source && (
+        <small style={{ opacity: 0.7 }}>
+          Source: {source === "cache" ? "Cached (server)" : "Live (Finnhub)"}
+        </small>
+      )}
 
-      {loading && (
-        <p style={{ fontSize: "0.9rem", opacity: 0.85 }}>
-          Loading chart...
-        </p>
-      )}
-      {error && (
-        <p style={{ fontSize: "0.9rem", color: "crimson" }}>{error}</p>
-      )}
+      {loading && <p>Loading chart...</p>}
+      {error && <p style={{ color: "crimson" }}>{error}</p>}
 
       <div
         ref={containerRef}
