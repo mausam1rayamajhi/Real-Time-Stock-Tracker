@@ -41,11 +41,12 @@ const StockCharts = ({
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
 
+  const [chartReady, setChartReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [source, setSource] = useState("");
 
-  // 🚀 CREATE CHART — inside useEffect ONLY
+  // 1️⃣ Create chart once
   useEffect(() => {
     if (!containerRef.current || chartRef.current) return;
 
@@ -82,9 +83,10 @@ const StockCharts = ({
 
     chartRef.current = chart;
     seriesRef.current = candleSeries;
+    setChartReady(true); // ✅ signal that chart is ready
 
-    // Handle resizing
     const handleResize = () => {
+      if (!containerRef.current) return;
       chart.applyOptions({
         width: containerRef.current.clientWidth,
       });
@@ -98,21 +100,26 @@ const StockCharts = ({
     };
   }, []);
 
-  // 🚀 FETCH CANDLES
+  // 2️⃣ Fetch candles AFTER chart is ready
   useEffect(() => {
-    const load = async () => {
-      if (!symbol || !seriesRef.current) return;
-
-      setLoading(true);
-      setError("");
+    const fetchCandles = async () => {
+      if (!symbol || !chartReady || !seriesRef.current || !chartRef.current) {
+        return;
+      }
 
       try {
-        const res = await fetch(
-          `${API_BASE_URL}/api/candles/${symbol}?resolution=${resolution}&range=${range}`
-        );
+        setLoading(true);
+        setError("");
+        setSource("");
+
+        const url = `${API_BASE_URL}/api/candles/${symbol}?resolution=${resolution}&range=${range}`;
+        console.log("📈 Fetching candles:", url);
+
+        const res = await fetch(url);
 
         if (!res.ok) {
-          throw new Error("Failed to load candle data.");
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to load candle data.");
         }
 
         const data = await res.json();
@@ -123,20 +130,20 @@ const StockCharts = ({
         }
 
         setSource(data.source || "");
-
         seriesRef.current.setData(data.candles);
         chartRef.current.timeScale().fitContent();
       } catch (err) {
-        console.error(err);
+        console.error("Error loading candle data:", err);
         setError(err.message || "Unable to load chart data.");
       } finally {
         setLoading(false);
       }
     };
 
-    load();
-  }, [symbol, range, resolution]);
+    fetchCandles();
+  }, [symbol, range, resolution, chartReady]);
 
+  // Require login (same behavior you had)
   if (!user) {
     return (
       <div style={cardStyle}>
@@ -148,7 +155,7 @@ const StockCharts = ({
   return (
     <div style={cardStyle}>
       <h2>
-        {symbol} – Candlestick Chart ({range}, {resolution})
+        {symbol || "—"} – Candlestick Chart ({range}, {resolution})
       </h2>
 
       {source && (
