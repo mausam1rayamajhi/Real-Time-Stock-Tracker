@@ -27,16 +27,17 @@ const StockCharts = ({ symbol: propSymbol }) => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!symbol || !user) return;
+    if (!symbol) return;
+    if (!user) return; // require login
 
     const fetchCandles = async () => {
       try {
         setError("");
         setData([]);
 
-        console.log("📊 Fetching candles for", symbol, "from", API_BASE_URL);
+        console.log("📈 Fetching candles for", symbol, "from", API_BASE_URL);
         const res = await axios.get(`${API_BASE_URL}/api/candles/${symbol}`);
-        const candles = res.data;
+        const candles = res.data; // { o, h, l, c, v, t, s }
 
         if (!candles || !Array.isArray(candles.t) || candles.t.length === 0) {
           setError("No candle data available.");
@@ -48,7 +49,7 @@ const StockCharts = ({ symbol: propSymbol }) => {
         const chartData = t.map((ts, i) => {
           let dateMs;
           if (typeof ts === "number") {
-            dateMs = ts < 1e12 ? ts * 1000 : ts; // seconds → ms
+            dateMs = ts < 1e12 ? ts * 1000 : ts; // seconds → ms if needed
           } else {
             dateMs = Date.parse(ts);
           }
@@ -69,7 +70,7 @@ const StockCharts = ({ symbol: propSymbol }) => {
           };
         });
 
-        console.log("Candle points:", chartData.length);
+        console.log("✅ Candle points:", chartData.length);
         setData(chartData);
       } catch (err) {
         console.error(

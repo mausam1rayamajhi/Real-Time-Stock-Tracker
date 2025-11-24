@@ -1,52 +1,40 @@
-import React, { useContext } from "react";
-import { UserContext } from "../../UserContext";
+// frontend/src/components/stocks/StockCard.js
+import React from "react";
+import WishlistButton from "../wishlist/WishlistButton";
+import "./StockCard.css";
 
-const StockCard = ({ symbol, name, price, percentChange, onRemove }) => {
-  const { user } = useContext(UserContext);
-
-  const cardStyle = {
-    background: "rgba(255, 255, 255, 0.25)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
-    borderRadius: "16px",
-    padding: "1.5rem",
-    margin: "1rem auto",
-    width: "240px",
-    textAlign: "center",
-    boxShadow: "0 8px 20px rgba(0,0,0,0.1)",
-    border: "1px solid rgba(255, 255, 255, 0.35)",
-    color: "#003366",
-  };
+const StockCard = ({ symbol, name, price, percentChange }) => {
+  const hasPercent =
+    typeof percentChange === "number" && !Number.isNaN(percentChange);
+  const isPositive = hasPercent && percentChange > 0;
 
   return (
-    <div style={cardStyle}>
-      <h3>{symbol} - {name}</h3>
-
-      <p style={{ fontSize: "1.4rem", fontWeight: "bold" }}>${price}</p>
-
-      <p style={{
-        color: percentChange >= 0 ? "#00b869" : "#d9534f",
-        fontWeight: 600
-      }}>
-        {percentChange >= 0 ? "▲" : "▼"} {percentChange}%
+    <div
+      className="stock-card"
+      style={{
+        border: "1px solid #333",
+        padding: "1rem",
+        margin: "1rem",
+        borderRadius: "8px",
+        background: "#111",
+        color: "#eee",
+      }}
+    >
+      <h3>
+        {symbol} - {name || symbol}
+      </h3>
+      <p>💲 {typeof price === "number" ? price : "N/A"}</p>
+      <p style={{ color: isPositive ? "lightgreen" : "salmon" }}>
+        {hasPercent ? (
+          <>
+            {isPositive ? "▲" : "▼"} {percentChange.toFixed(2)}%
+          </>
+        ) : (
+          "N/A"
+        )}
       </p>
 
-      {user && (
-        <button
-          onClick={onRemove}
-          style={{
-            marginTop: "0.75rem",
-            padding: "0.4rem 1rem",
-            border: "none",
-            borderRadius: "10px",
-            background: "#ffffff",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
-            cursor: "pointer",
-          }}
-        >
-          Remove from Wishlist
-        </button>
-      )}
+      <WishlistButton symbol={symbol} />
     </div>
   );
 };
