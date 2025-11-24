@@ -29,8 +29,8 @@ const cardStyle = {
 
 const StockCharts = ({
   symbol: propSymbol,
-  range = "6M",
-  resolution = "D",
+  range = "30D",     // just for label, backend always returns 30 days
+  resolution = "D",  // just for label
 }) => {
   const { user } = useContext(UserContext);
   const routeParams = useParams();
@@ -45,10 +45,10 @@ const StockCharts = ({
   const [error, setError] = useState("");
   const [source, setSource] = useState("");
 
-  // 1️⃣ Create chart once (browser-only, via window.LightweightCharts)
+  // 1️⃣ Create chart once in browser (via window.LightweightCharts)
   useEffect(() => {
     if (!containerRef.current) return;
-    if (chartRef.current) return; // already created (StrictMode double-call)
+    if (chartRef.current) return; // prevent double init in StrictMode
 
     const LW = window.LightweightCharts;
     if (!LW || typeof LW.createChart !== "function") {
@@ -122,23 +122,21 @@ const StockCharts = ({
         setError("");
         setSource("");
 
-        const url = `${API_BASE_URL}/api/candles/${symbol}?resolution=${resolution}&range=${range}`;
+        const url = `${API_BASE_URL}/api/candles/${symbol}`;
         console.log("📈 Fetching candles:", url);
 
         const res = await fetch(url);
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || "Failed to load candle data.");
+          throw new Error(errData.error || "Failed to fetch candle data.");
         }
 
         const data = await res.json();
 
-        // Support both formats:
-        // 1) { candles: [{time,open,high,low,close,volume}, ...] }
-        // 2) { o, h, l, c, v, t } arrays
         let candles = data.candles;
 
+        // Fallback if endpoint ever changes to o/h/l/c/v/t arrays
         if (!candles && Array.isArray(data.t)) {
           const { o, h, l, c, v, t } = data;
           candles = t.map((ts, i) => {
@@ -148,7 +146,6 @@ const StockCharts = ({
             } else {
               timeSec = Math.floor(new Date(ts).getTime() / 1000);
             }
-
             return {
               time: timeSec,
               open: o[i],
@@ -177,9 +174,9 @@ const StockCharts = ({
     };
 
     fetchCandles();
-  }, [symbol, range, resolution, chartReady]);
+  }, [symbol, chartReady]);
 
-  // Require login (same as before)
+  // Require login (same behavior you had)
   if (!user) {
     return (
       <div style={cardStyle}>
@@ -191,12 +188,12 @@ const StockCharts = ({
   return (
     <div style={cardStyle}>
       <h2>
-        {symbol || "—"} – Candlestick Chart ({range}, {resolution})
+        {symbol || "—"} – 30-Day Candlestick Chart ({resolution})
       </h2>
 
       {source && (
         <small style={{ opacity: 0.7 }}>
-          Source: {source === "cache" ? "Cached (server)" : "Live"}
+          Source: {source === "yahoo" ? "Yahoo Finance" : source}
         </small>
       )}
 

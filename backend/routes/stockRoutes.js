@@ -2,6 +2,7 @@
 
 const express = require("express");
 const axios = require("axios");
+const yahooFinance = require("yahoo-finance2").default;
 
 const router = express.Router();
 
@@ -88,7 +89,7 @@ router.get("/search/:query", async (req, res) => {
 /**
  * GET /api/chartdata/:symbol
  * Intraday 1-minute candles (last 60 minutes) – Finnhub
- * (You can keep this if you still need intraday somewhere else.)
+ * (You can keep this if you want intraday later)
  */
 router.get("/chartdata/:symbol", async (req, res) => {
   try {
@@ -125,135 +126,57 @@ router.get("/chartdata/:symbol", async (req, res) => {
   }
 });
 
-/* ------------------------------------------------------------------
-   DAILY / RANGE CANDLES FOR LIGHTWEIGHT-CHARTS (Finnhub + caching)
-   Endpoint: GET /api/candles/:symbol?resolution=D&range=6M
-   Returns:
-   {
-     symbol, resolution, range, source,
-     candles: [
-       { time, open, high, low, close, volume },
-       ...
-     ]
-   }
--------------------------------------------------------------------*/
-
-// Simple in-memory cache
-// key: `${symbol}_${resolution}_${range}` → { timestamp, data }
-const candleCache = new Map();
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds
-
-function getCacheKey(symbol, resolution, range) {
-  return `${symbol}_${resolution}_${range}`;
-}
-
-function computeFromTo(range) {
-  const nowSec = Math.floor(Date.now() / 1000);
-  let days;
-
-  switch (range) {
-    case "1D":
-      days = 1;
-      break;
-    case "5D":
-      days = 5;
-      break;
-    case "1M":
-      days = 30;
-      break;
-    case "3M":
-      days = 90;
-      break;
-    case "6M":
-      days = 180;
-      break;
-    case "1Y":
-      days = 365;
-      break;
-    default:
-      days = 180; // fallback 6M
-  }
-
-  const fromSec = nowSec - days * 24 * 60 * 60;
-  return { fromSec, toSec: nowSec };
-}
-
 /**
  * GET /api/candles/:symbol
- * Daily candles / range candles for chart (Finnhub)
+ * 30-day daily candles from Yahoo Finance
+ * Returns: { symbol, source, candles: [ { time, open, high, low, close, volume }, ... ] }
  */
 router.get("/candles/:symbol", async (req, res) => {
   try {
     const symbol = req.params.symbol.toUpperCase();
-    const resolution = req.query.resolution || "D"; // 1, 5, 15, 30, 60, D, W, M
-    const range = req.query.range || "6M";
 
-    if (!API_KEY) {
-      return res.status(500).json({
-        error: "FINNHUB_API_KEY is not configured on the server.",
-      });
+    // Last 30 calendar days
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - 30);
+
+    const queryOptions = {
+      period1: start,
+      period2: end,
+      interval: "1d",
+    };
+
+    const results = await yahooFinance.historical(symbol, queryOptions);
+
+    if (!results || !Array.isArray(results) || results.length === 0) {
+      return res.status(404).json({ error: "No candle data available." });
     }
 
-    const cacheKey = getCacheKey(symbol, resolution, range);
-    const cached = candleCache.get(cacheKey);
+    // Map Yahoo OHLCV to Lightweight Charts candle format
+    const candles = results.map((bar) => {
+      const tsMs = new Date(bar.date).getTime();
+      const tsSec = Math.floor(tsMs / 1000);
 
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      return res.json({
-        symbol,
-        resolution,
-        range,
-        source: "cache",
-        candles: cached.data,
-      });
-    }
-
-    const { fromSec, toSec } = computeFromTo(range);
-
-    const url = `${FINN}/stock/candle`;
-    const { data } = await axios.get(url, {
-      params: {
-        symbol,
-        resolution,
-        from: fromSec,
-        to: toSec,
-        token: API_KEY,
-      },
-    });
-
-    if (data.s !== "ok" || !Array.isArray(data.t) || data.t.length === 0) {
-      return res.status(404).json({
-        error: "No candle data available from Finnhub.",
-        details: data,
-      });
-    }
-
-    // Finnhub returns arrays: t, o, h, l, c, v
-    const candles = data.t.map((t, i) => ({
-      time: t, // unix seconds – exactly what lightweight-charts wants
-      open: data.o[i],
-      high: data.h[i],
-      low: data.l[i],
-      close: data.c[i],
-      volume: data.v[i],
-    }));
-
-    candleCache.set(cacheKey, {
-      timestamp: Date.now(),
-      data: candles,
+      return {
+        time: tsSec, // unix seconds
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+        volume: bar.volume ?? undefined,
+      };
     });
 
     return res.json({
       symbol,
-      resolution,
-      range,
-      source: "live",
+      source: "yahoo",
       candles,
     });
   } catch (err) {
-    console.error("Candle route error:", err.response?.data || err.message);
+    console.error("Candle error (Yahoo):", err.message || err);
     return res.status(500).json({
-      error: "Failed to fetch candle data.",
-      details: err.message,
+      error: "Failed to fetch candle data from Yahoo Finance.",
+      details: err.message || String(err),
     });
   }
 });
