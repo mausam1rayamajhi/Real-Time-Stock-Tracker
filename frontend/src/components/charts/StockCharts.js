@@ -28,7 +28,7 @@ const StockCharts = ({ symbol: propSymbol }) => {
 
   useEffect(() => {
     if (!symbol) return;
-    if (!user) return; // require login
+    if (!user) return; // keep your login requirement
 
     const fetchCandles = async () => {
       try {
@@ -37,7 +37,7 @@ const StockCharts = ({ symbol: propSymbol }) => {
 
         console.log("📈 Fetching candles for", symbol, "from", API_BASE_URL);
         const res = await axios.get(`${API_BASE_URL}/api/candles/${symbol}`);
-        const candles = res.data; // { o, h, l, c, v, t, s }
+        const candles = res.data; // { o, h, l, c, v, t }
 
         if (!candles || !Array.isArray(candles.t) || candles.t.length === 0) {
           setError("No candle data available.");
@@ -49,7 +49,7 @@ const StockCharts = ({ symbol: propSymbol }) => {
         const chartData = t.map((ts, i) => {
           let dateMs;
           if (typeof ts === "number") {
-            dateMs = ts < 1e12 ? ts * 1000 : ts; // seconds → ms if needed
+            dateMs = ts < 1e12 ? ts * 1000 : ts;
           } else {
             dateMs = Date.parse(ts);
           }
@@ -73,10 +73,7 @@ const StockCharts = ({ symbol: propSymbol }) => {
         console.log("✅ Candle points:", chartData.length);
         setData(chartData);
       } catch (err) {
-        console.error(
-          "Error loading candle data:",
-          err.response?.data || err.message || err
-        );
+        console.error("Error loading candle data:", err);
         setError("Unable to load chart data.");
       }
     };
@@ -102,20 +99,13 @@ const StockCharts = ({ symbol: propSymbol }) => {
 
   return (
     <div style={{ padding: "1rem" }}>
-      <h2 style={{ textAlign: "center", marginBottom: "1rem" }}>
-        {symbol} – Daily Price &amp; Volume (Real Data)
-      </h2>
+      <h2>{symbol} – Daily Price &amp; Volume (Real Data)</h2>
       <ResponsiveContainer width="100%" height={320}>
         <ComposedChart data={data}>
-          <CartesianGrid stroke="#e5e7eb" />
+          <CartesianGrid stroke="#444" />
           <XAxis dataKey="date" />
           <YAxis yAxisId="left" orientation="right" domain={["auto", "auto"]} />
-          <YAxis
-            yAxisId="right"
-            orientation="left"
-            hide
-            domain={["auto", "auto"]}
-          />
+          <YAxis yAxisId="right" orientation="left" hide domain={["auto", "auto"]} />
           <Tooltip />
           <Bar yAxisId="right" dataKey="volume" barSize={16} opacity={0.35} />
           <Line yAxisId="left" type="monotone" dataKey="close" dot={false} />

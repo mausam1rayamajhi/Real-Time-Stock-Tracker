@@ -2,12 +2,10 @@
 
 const express = require("express");
 const axios = require("axios");
-const yahooFinance = require("yahoo-finance2").default;
 
 const router = express.Router();
 
-
-// Finnhub config (for quote/profile/search)
+// Finnhub config
 const API_KEY = process.env.FINNHUB_API_KEY;
 const FINN = "https://finnhub.io/api/v1";
 
@@ -29,9 +27,7 @@ router.get("/quote/:symbol", async (req, res) => {
 
     // data.c = current price, data.pc = previous close
     if (typeof data.c !== "number") {
-      return res
-        .status(500)
-        .json({ error: "Invalid quote data from Finnhub." });
+      return res.status(500).json({ error: "Invalid quote data from Finnhub." });
     }
 
     let percentChange = null;
@@ -87,67 +83,88 @@ router.get("/search/:query", async (req, res) => {
   }
 });
 
-// Daily candles (last ~30 days) from Yahoo Finance
+/**
+ * GET /api/chartdata/:symbol
+ * Intraday 1-minute candles (last 60 minutes) – Finnhub
+ */
+router.get("/chartdata/:symbol", async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    const to = Math.floor(Date.now() / 1000);
+    const from = to - 60 * 60; // last 60 minutes
+
+    const { data } = await axios.get(`${FINN}/stock/candle`, {
+      params: {
+        symbol,
+        resolution: "1",
+        from,
+        to,
+        token: API_KEY,
+      },
+    });
+
+    if (data.s !== "ok" || !Array.isArray(data.t)) {
+      return res.status(400).json({ error: "No intraday data available." });
+    }
+
+    res.json({
+      o: data.o,
+      h: data.h,
+      l: data.l,
+      c: data.c,
+      v: data.v,
+      t: data.t,
+      s: data.s,
+    });
+  } catch (err) {
+    console.error("Intraday candles error:", err.response?.data || err.message);
+    res.status(500).json({ error: "Failed to fetch intraday candles." });
+  }
+});
 
 /**
  * GET /api/candles/:symbol
- * Daily OHLCV for ~last 30 days – Yahoo Finance
- * Returns { o, h, l, c, v, t, s } to match your frontend
+ * Daily candles (last 30 days) – Finnhub
+ * Shape matches what your frontend expects: { o, h, l, c, v, t, s }
  */
 router.get("/candles/:symbol", async (req, res) => {
-  const symbol = req.params.symbol.toUpperCase();
-
   try {
-    console.log(`📈 Fetching daily candles for ${symbol} from Yahoo Finance`);
+    const symbol = req.params.symbol.toUpperCase();
 
-    // Last ~30 days
-    const period2 = new Date(); // now
-    const period1 = new Date(period2.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-    const results = await yahooFinance.historical(symbol, {
-      period1,
-      period2,
-      interval: "1d",
-    });
-
-    if (!Array.isArray(results) || results.length === 0) {
-      console.warn("⚠️ No historical data from Yahoo for", symbol);
-      return res
-        .status(404)
-        .json({ error: "No daily candle data available for symbol." });
+    if (!API_KEY) {
+      return res.status(500).json({ error: "Missing FINNHUB_API_KEY" });
     }
 
-    const o = [];
-    const h = [];
-    const l = [];
-    const c = [];
-    const v = [];
-    const t = [];
+    const now = Math.floor(Date.now() / 1000);
+    const from = now - 30 * 24 * 60 * 60; // 30 days back
 
-    results.forEach((bar) => {
-      o.push(bar.open);
-      h.push(bar.high);
-      l.push(bar.low);
-      c.push(bar.close);
-      v.push(bar.volume);
-      t.push(Math.floor(new Date(bar.date).getTime() / 1000)); // seconds since epoch
+    const { data } = await axios.get(`${FINN}/stock/candle`, {
+      params: {
+        symbol,
+        resolution: "D",
+        from,
+        to: now,
+        token: API_KEY,
+      },
     });
 
+    if (data.s !== "ok" || !Array.isArray(data.t) || data.t.length === 0) {
+      console.warn("⚠️ No daily candle data for", symbol, data.s);
+      return res.status(404).json({ error: "No candle data found" });
+    }
+
     return res.json({
-      o,
-      h,
-      l,
-      c,
-      v,
-      t,
+      o: data.o,
+      h: data.h,
+      l: data.l,
+      c: data.c,
+      v: data.v,
+      t: data.t,
       s: "ok",
     });
   } catch (err) {
-    console.error("Daily candles error (Yahoo):", err.message || err);
-    return res.status(500).json({
-      error: "Failed to fetch daily candle data from Yahoo Finance.",
-      details: err.message || String(err),
-    });
+    console.error("Daily candles error:", err.response?.data || err.message);
+    res.status(500).json({ error: "Failed to fetch candle data" });
   }
 });
 
