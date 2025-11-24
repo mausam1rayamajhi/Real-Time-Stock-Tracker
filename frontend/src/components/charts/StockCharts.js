@@ -7,7 +7,7 @@ import React, {
   useState,
 } from "react";
 import { useParams } from "react-router-dom";
-import * as LightweightCharts from "lightweight-charts";
+import { createChart } from "lightweight-charts";
 import { UserContext } from "../../UserContext";
 
 const API_BASE_URL =
@@ -48,9 +48,12 @@ const StockCharts = ({
 
   // 1️⃣ Create chart once
   useEffect(() => {
-    if (!containerRef.current || chartRef.current) return;
+    // container not mounted yet
+    if (!containerRef.current) return;
+    // already created
+    if (chartRef.current) return;
 
-    const chart = LightweightCharts.createChart(containerRef.current, {
+    const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
       height: 400,
       layout: {
@@ -83,7 +86,7 @@ const StockCharts = ({
 
     chartRef.current = chart;
     seriesRef.current = candleSeries;
-    setChartReady(true); // ✅ signal that chart is ready
+    setChartReady(true);
 
     const handleResize = () => {
       if (!containerRef.current) return;
@@ -97,6 +100,9 @@ const StockCharts = ({
     return () => {
       window.removeEventListener("resize", handleResize);
       chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
+      setChartReady(false);
     };
   }, []);
 
