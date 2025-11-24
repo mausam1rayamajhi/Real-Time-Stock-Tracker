@@ -1,56 +1,56 @@
-/* frontend/src/pages/SearchResults.css */
-
+/* Page background + base layout */
 .search-results {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 2.5rem 1.5rem 3rem;
+  min-height: 100vh;
+  padding: 2rem 1.5rem 3rem;
+  background: radial-gradient(circle at top, #e0f2fe 0, #f9fafb 45%, #eef2ff 100%);
+  color: #1c90cf;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* Title */
 .search-results-title {
-  text-align: center;
-  font-size: 2.1rem;
+  font-size: 2rem;
   font-weight: 700;
-  color: #003366;
-  margin-bottom: 1.75rem;
+  color: #075272; /* bright cyan/blue */
+  margin-bottom: 1.5rem;
+  text-align: center;
 }
 
+/* Error text */
 .search-results-error {
-  text-align: center;
-  color: #b91c1c;
+  color: #f97373;
   margin-bottom: 1rem;
 }
 
-/* Hero area: card + company info, both centered */
+/* Top area: card + company info centered */
 .search-results-header {
   display: flex;
-  flex-direction: column;      /* stack card and company info */
-  align-items: center;         /* center horizontally */
-  justify-content: center;
-  gap: 0.75rem;
-  margin-bottom: 2.5rem;
-}
-
-/* Center the card */
-.search-results-header-card {
+  flex-direction: column;          /* stacked on mobile */
+  align-items: center;
+  gap: 1.5rem;
   width: 100%;
-  display: flex;
-  justify-content: center;
+  max-width: 960px;
+  margin-bottom: 2rem;
 }
 
-/* Center the company info */
-.search-results-header-company {
-  width: 100%;
-  display: flex;
-  justify-content: center;
+/* On larger screens, put them side-by-side but still centered */
+@media (min-width: 900px) {
+  .search-results-header {
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+  }
 }
 
-/* Gently limit CompanyInfo width so it hugs the card */
-.search-results-header-company > * {
-  max-width: 260px;
-}
-
-/* Chart section stays where it is, just centered inside page */
+/* Chart container â€œcardâ€ */
 .stock-charts {
-  margin-top: 0.5rem;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+  padding: 1.5rem;
 }

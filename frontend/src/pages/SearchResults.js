@@ -62,35 +62,32 @@ const SearchResults = () => {
   }, [symbol]);
 
   return (
-    <div className="search-results">
-      <h1 className="search-results-title">Stock Viewer: {symbol}</h1>
+  <div className="search-results">
+    <h1 className="search-results-title">Stock Viewer: {symbol}</h1>
 
-      {error && <p className="search-results-error">{error}</p>}
+    {error && <p className="search-results-error">{error}</p>}
 
-      <div className="search-results-header">
-        <div className="search-results-header-card">
-          {priceData ? (
-            <StockCard
-              symbol={symbol}
-              name={symbol}
-              price={priceData.price}
-              percentChange={priceData.percentChange}
-            />
-          ) : (
-            !error && <p>Loading price data...</p>
-          )}
-        </div>
+    <div className="search-results-header">
+      {priceData ? (
+        <StockCard
+          symbol={symbol}
+          name={symbol}
+          price={priceData.price}
+          percentChange={priceData.percentChange}
+        />
+      ) : (
+        !error && <p>Loading price data...</p>
+      )}
 
-        <div className="search-results-header-company">
-          <CompanyInfo symbol={symbol} />
-        </div>
-      </div>
-
-      <div className="stock-charts">
-        <StockCharts symbol={symbol} />
-      </div>
+      {/* Company info next to / under the card, but centered */}
+      <CompanyInfo symbol={symbol} />
     </div>
-  );
+
+    <div className="stock-charts">
+      <StockCharts symbol={symbol} />
+    </div>
+  </div>
+);
 };
 
 export default SearchResults;
