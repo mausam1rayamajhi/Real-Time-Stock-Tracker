@@ -1,74 +1,127 @@
-import React, { useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { UserContext } from '../../UserContext';
-import { db } from '../../firebase';
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  arrayUnion,
-  arrayRemove,
-  setDoc,
-} from 'firebase/firestore';
+// frontend/src/components/wishlist/WishlistView.js
+import React, { useContext, useEffect, useState } from "react";
+import { UserContext } from "../../UserContext";
+import { db } from "../../firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+import axios from "axios";
 
-const WishlistButton = ({ symbol }) => {
+const API_BASE_URL =
+  process.env.REACT_APP_API_BASE_URL ||
+  "https://real-time-stock-tracker-backend.onrender.com";
+
+const WishlistView = () => {
   const { user } = useContext(UserContext);
-  const [inWishlist, setInWishlist] = useState(false);
-  const navigate = useNavigate();
+  const [wishlist, setWishlist] = useState([]);
+  const [stockDetails, setStockDetails] = useState({});
 
   useEffect(() => {
-    const checkWishlist = async () => {
-      if (!user) return;
-      const ref = doc(db, 'users', user.uid);
-      const snap = await getDoc(ref);
+    if (!user) return;
+
+    const ref = doc(db, "users", user.uid);
+    const unsubscribe = onSnapshot(ref, (snap) => {
       if (snap.exists()) {
-        setInWishlist(snap.data().wishlist?.includes(symbol));
+        setWishlist(snap.data().wishlist || []);
+      } else {
+        setWishlist([]);
       }
-    };
-    checkWishlist();
-  }, [user, symbol]);
-
-  const showToast = (message) => {
-    const toast = document.createElement('div');
-    toast.innerText = message;
-    toast.style.position = 'fixed';
-    toast.style.bottom = '30px';
-    toast.style.left = '50%';
-    toast.style.transform = 'translateX(-50%)';
-    toast.style.backgroundColor = '#333';
-    toast.style.color = 'white';
-    toast.style.padding = '12px 20px';
-    toast.style.borderRadius = '8px';
-    toast.style.zIndex = 9999;
-    toast.style.boxShadow = '0 0 10px rgba(0,0,0,0.3)';
-
-    document.body.appendChild(toast);
-    setTimeout(() => document.body.removeChild(toast), 3000);
-  };
-
-  const toggleWishlist = async () => {
-    if (!user) {
-      showToast('🔒 Please sign in to use wishlist. Redirecting...');
-      setTimeout(() => navigate('/login'), 2000);
-      return;
-    }
-
-    const ref = doc(db, 'users', user.uid);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) await setDoc(ref, { wishlist: [] });
-
-    await updateDoc(ref, {
-      wishlist: inWishlist ? arrayRemove(symbol) : arrayUnion(symbol),
     });
 
-    setInWishlist(!inWishlist);
-  };
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchDetails = async () => {
+      const results = {};
+
+      await Promise.all(
+        wishlist.map(async (symbol) => {
+          try {
+            const [stockRes, profileRes] = await Promise.all([
+              axios.get(`${API_BASE_URL}/api/quote/${symbol}`),
+              axios.get(`${API_BASE_URL}/api/profile/${symbol}`),
+            ]);
+
+            results[symbol] = {
+              name: profileRes.data.name || symbol,
+              price: stockRes.data.price,
+              percentChange: stockRes.data.percentChange,
+            };
+          } catch (err) {
+            console.error(`Error fetching details for ${symbol}`, err);
+          }
+        })
+      );
+
+      setStockDetails(results);
+    };
+
+    if (wishlist.length > 0) {
+      fetchDetails();
+    } else {
+      setStockDetails({});
+    }
+  }, [wishlist]);
 
   return (
-    <button onClick={toggleWishlist} style={{ marginTop: '0.5rem' }}>
-      {inWishlist ? '★ Remove from Wishlist' : '☆ Add to Wishlist'}
-    </button>
+    <div
+      style={{
+        padding: "1rem",
+        background: "#f9fafb",
+        color: "#0f172a",
+        borderRadius: "12px",
+        border: "1px solid #e2e8f0",
+      }}
+    >
+      {wishlist.length === 0 ? (
+        <p style={{ margin: 0 }}>No stocks in watchlist yet.</p>
+      ) : (
+        <ul style={{ listStyle: "none", paddingLeft: 0, margin: 0 }}>
+          {wishlist.map((symbol) => {
+            const data = stockDetails[symbol];
+
+            const price = data ? Number(data.price) : NaN;
+            const change = data ? Number(data.percentChange) : NaN;
+
+            const hasPrice = !Number.isNaN(price);
+            const hasChange = !Number.isNaN(change);
+            const isPositive = hasChange && change >= 0;
+
+            return (
+              <li
+                key={symbol}
+                style={{
+                  marginBottom: "0.75rem",
+                  fontSize: "0.95rem",
+                }}
+              >
+                <strong>{data?.name || symbol}</strong>{" "}
+                {data ? (
+                  <>
+                    {hasPrice && <>— ${price.toFixed(2)} </>}
+                    {hasChange && (
+                      <span
+                        style={{
+                          color: isPositive ? "#16a34a" : "#dc2626",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {isPositive ? "▲" : "▼"} {change.toFixed(2)}%
+                      </span>
+                    )}
+                    {!hasPrice && !hasChange && (
+                      <span>Data unavailable</span>
+                    )}
+                  </>
+                ) : (
+                  <span>Loading...</span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 };
 
-export default WishlistButton;
+export default WishlistView;
