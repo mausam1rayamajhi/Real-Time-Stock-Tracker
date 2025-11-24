@@ -127,45 +127,43 @@ router.get("/chartdata/:symbol", async (req, res) => {
  * Daily candles (last 30 days) – Finnhub
  * Shape matches what your frontend expects: { o, h, l, c, v, t, s }
  */
+// DAILY CANDLES — 30 days — Yahoo Finance (no token required)
 router.get("/candles/:symbol", async (req, res) => {
   try {
-    const symbol = req.params.symbol.toUpperCase();
+    const { symbol } = req.params;
 
-    if (!API_KEY) {
-      return res.status(500).json({ error: "Missing FINNHUB_API_KEY" });
-    }
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - 30);
 
-    const now = Math.floor(Date.now() / 1000);
-    const from = now - 30 * 24 * 60 * 60; // 30 days back
-
-    const { data } = await axios.get(`${FINN}/stock/candle`, {
-      params: {
-        symbol,
-        resolution: "D",
-        from,
-        to: now,
-        token: API_KEY,
-      },
+    const results = await yahooFinance.historical(symbol, {
+      period1: start,
+      period2: end,
+      interval: "1d",
     });
 
-    if (data.s !== "ok" || !Array.isArray(data.t) || data.t.length === 0) {
-      console.warn("⚠️ No daily candle data for", symbol, data.s);
-      return res.status(404).json({ error: "No candle data found" });
+    if (!results || !Array.isArray(results)) {
+      return res.status(404).json({ error: "No candle data." });
     }
 
-    return res.json({
-      o: data.o,
-      h: data.h,
-      l: data.l,
-      c: data.c,
-      v: data.v,
-      t: data.t,
-      s: "ok",
+    const o = [], h = [], l = [], c = [], v = [], t = [];
+
+    results.forEach(bar => {
+      o.push(bar.open);
+      h.push(bar.high);
+      l.push(bar.low);
+      c.push(bar.close);
+      v.push(bar.volume);
+      t.push(Math.floor(new Date(bar.date).getTime() / 1000));
     });
+
+    res.json({ o, h, l, c, v, t, s: "ok" });
+
   } catch (err) {
-    console.error("Daily candles error:", err.response?.data || err.message);
-    res.status(500).json({ error: "Failed to fetch candle data" });
+    console.error("Candle error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
+
 
 module.exports = router;
