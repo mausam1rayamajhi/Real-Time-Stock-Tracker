@@ -27,7 +27,9 @@ router.get("/quote/:symbol", async (req, res) => {
 
     // data.c = current price, data.pc = previous close
     if (typeof data.c !== "number") {
-      return res.status(500).json({ error: "Invalid quote data from Finnhub." });
+      return res
+        .status(500)
+        .json({ error: "Invalid quote data from Finnhub." });
     }
 
     let percentChange = null;
@@ -86,6 +88,7 @@ router.get("/search/:query", async (req, res) => {
 /**
  * GET /api/chartdata/:symbol
  * Intraday 1-minute candles (last 60 minutes) – Finnhub
+ * (You can keep this if you still need intraday somewhere else.)
  */
 router.get("/chartdata/:symbol", async (req, res) => {
   try {
@@ -122,48 +125,137 @@ router.get("/chartdata/:symbol", async (req, res) => {
   }
 });
 
+/* ------------------------------------------------------------------
+   DAILY / RANGE CANDLES FOR LIGHTWEIGHT-CHARTS (Finnhub + caching)
+   Endpoint: GET /api/candles/:symbol?resolution=D&range=6M
+   Returns:
+   {
+     symbol, resolution, range, source,
+     candles: [
+       { time, open, high, low, close, volume },
+       ...
+     ]
+   }
+-------------------------------------------------------------------*/
+
+// Simple in-memory cache
+// key: `${symbol}_${resolution}_${range}` → { timestamp, data }
+const candleCache = new Map();
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
+function getCacheKey(symbol, resolution, range) {
+  return `${symbol}_${resolution}_${range}`;
+}
+
+function computeFromTo(range) {
+  const nowSec = Math.floor(Date.now() / 1000);
+  let days;
+
+  switch (range) {
+    case "1D":
+      days = 1;
+      break;
+    case "5D":
+      days = 5;
+      break;
+    case "1M":
+      days = 30;
+      break;
+    case "3M":
+      days = 90;
+      break;
+    case "6M":
+      days = 180;
+      break;
+    case "1Y":
+      days = 365;
+      break;
+    default:
+      days = 180; // fallback 6M
+  }
+
+  const fromSec = nowSec - days * 24 * 60 * 60;
+  return { fromSec, toSec: nowSec };
+}
+
 /**
  * GET /api/candles/:symbol
- * Daily candles (last 30 days) – Finnhub
- * Shape matches what your frontend expects: { o, h, l, c, v, t, s }
+ * Daily candles / range candles for chart (Finnhub)
  */
-// DAILY CANDLES — 30 days — Yahoo Finance (no token required)
 router.get("/candles/:symbol", async (req, res) => {
   try {
-    const { symbol } = req.params;
+    const symbol = req.params.symbol.toUpperCase();
+    const resolution = req.query.resolution || "D"; // 1, 5, 15, 30, 60, D, W, M
+    const range = req.query.range || "6M";
 
-    const end = new Date();
-    const start = new Date();
-    start.setDate(end.getDate() - 30);
-
-    const results = await yahooFinance.historical(symbol, {
-      period1: start,
-      period2: end,
-      interval: "1d",
-    });
-
-    if (!results || !Array.isArray(results)) {
-      return res.status(404).json({ error: "No candle data." });
+    if (!API_KEY) {
+      return res.status(500).json({
+        error: "FINNHUB_API_KEY is not configured on the server.",
+      });
     }
 
-    const o = [], h = [], l = [], c = [], v = [], t = [];
+    const cacheKey = getCacheKey(symbol, resolution, range);
+    const cached = candleCache.get(cacheKey);
 
-    results.forEach(bar => {
-      o.push(bar.open);
-      h.push(bar.high);
-      l.push(bar.low);
-      c.push(bar.close);
-      v.push(bar.volume);
-      t.push(Math.floor(new Date(bar.date).getTime() / 1000));
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return res.json({
+        symbol,
+        resolution,
+        range,
+        source: "cache",
+        candles: cached.data,
+      });
+    }
+
+    const { fromSec, toSec } = computeFromTo(range);
+
+    const url = `${FINN}/stock/candle`;
+    const { data } = await axios.get(url, {
+      params: {
+        symbol,
+        resolution,
+        from: fromSec,
+        to: toSec,
+        token: API_KEY,
+      },
     });
 
-    res.json({ o, h, l, c, v, t, s: "ok" });
+    if (data.s !== "ok" || !Array.isArray(data.t) || data.t.length === 0) {
+      return res.status(404).json({
+        error: "No candle data available from Finnhub.",
+        details: data,
+      });
+    }
 
+    // Finnhub returns arrays: t, o, h, l, c, v
+    const candles = data.t.map((t, i) => ({
+      time: t, // unix seconds – exactly what lightweight-charts wants
+      open: data.o[i],
+      high: data.h[i],
+      low: data.l[i],
+      close: data.c[i],
+      volume: data.v[i],
+    }));
+
+    candleCache.set(cacheKey, {
+      timestamp: Date.now(),
+      data: candles,
+    });
+
+    return res.json({
+      symbol,
+      resolution,
+      range,
+      source: "live",
+      candles,
+    });
   } catch (err) {
-    console.error("Candle error:", err);
-    res.status(500).json({ error: err.message });
+    console.error("Candle route error:", err.response?.data || err.message);
+    return res.status(500).json({
+      error: "Failed to fetch candle data.",
+      details: err.message,
+    });
   }
 });
-
 
 module.exports = router;

@@ -1,116 +1,205 @@
 // frontend/src/components/charts/StockCharts.js
-import React, { useContext, useEffect, useState } from "react";
-import axios from "axios";
+
+import React, {
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useParams } from "react-router-dom";
+import { createChart } from "lightweight-charts";
 import { UserContext } from "../../UserContext";
-import {
-  ResponsiveContainer,
-  ComposedChart,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  Bar,
-  Line,
-} from "recharts";
 
 const API_BASE_URL =
   process.env.REACT_APP_API_BASE_URL ||
   "https://real-time-stock-tracker-backend.onrender.com";
 
-const StockCharts = ({ symbol: propSymbol }) => {
+const cardStyle = {
+  background: "rgba(255, 255, 255, 0.25)",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+  borderRadius: "16px",
+  padding: "1.5rem",
+  margin: "1rem auto",
+  width: "100%",
+  maxWidth: "900px",
+  boxShadow: "0 8px 20px rgba(0,0,0,0.1)",
+  border: "1px solid rgba(255, 255, 255, 0.35)",
+  color: "#003366",
+};
+
+const StockCharts = ({
+  symbol: propSymbol,
+  range = "6M",
+  resolution = "D",
+}) => {
   const routeParams = useParams();
-  const symbol = propSymbol || routeParams.symbol;
+  const symbol = (propSymbol || routeParams.symbol || "").toUpperCase();
 
   const { user } = useContext(UserContext);
-  const [data, setData] = useState([]);
+
+  const containerRef = useRef(null);
+  const chartRef = useRef(null);
+  const seriesRef = useRef(null);
+
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [source, setSource] = useState("");
 
+  // Create chart once
   useEffect(() => {
-    if (!symbol) return;
-    if (!user) return; // keep your login requirement
+    if (!containerRef.current) return;
 
+    if (!chartRef.current) {
+      const chart = createChart(containerRef.current, {
+        width: containerRef.current.clientWidth,
+        height: 400,
+        layout: {
+          background: { type: "solid", color: "rgba(0,0,0,0)" },
+          textColor: "#003366",
+        },
+        grid: {
+          vertLines: { color: "rgba(0,0,0,0.05)" },
+          horzLines: { color: "rgba(0,0,0,0.05)" },
+        },
+        rightPriceScale: {
+          borderColor: "rgba(0,0,0,0.15)",
+        },
+        timeScale: {
+          borderColor: "rgba(0,0,0,0.15)",
+        },
+        crosshair: {
+          mode: 1,
+        },
+      });
+
+      const candleSeries = chart.addCandlestickSeries({
+        upColor: "#16a34a",
+        downColor: "#dc2626",
+        borderUpColor: "#16a34a",
+        borderDownColor: "#dc2626",
+        wickUpColor: "#16a34a",
+        wickDownColor: "#dc2626",
+      });
+
+      chartRef.current = chart;
+      seriesRef.current = candleSeries;
+
+      const handleResize = () => {
+        if (containerRef.current && chartRef.current) {
+          chartRef.current.applyOptions({
+            width: containerRef.current.clientWidth,
+          });
+        }
+      };
+
+      window.addEventListener("resize", handleResize);
+
+      return () => {
+        window.removeEventListener("resize", handleResize);
+        chart.remove();
+      };
+    }
+  }, []);
+
+  // Fetch candle data when symbol/range/resolution changes
+  useEffect(() => {
     const fetchCandles = async () => {
+      if (!symbol || !chartRef.current || !seriesRef.current) return;
+
       try {
+        setLoading(true);
         setError("");
-        setData([]);
+        setSource("");
 
-        console.log("📈 Fetching candles for", symbol, "from", API_BASE_URL);
-        const res = await axios.get(`${API_BASE_URL}/api/candles/${symbol}`);
-        const candles = res.data; // { o, h, l, c, v, t }
+        const res = await fetch(
+          `${API_BASE_URL}/api/candles/${symbol}?resolution=${resolution}&range=${range}`
+        );
 
-        if (!candles || !Array.isArray(candles.t) || candles.t.length === 0) {
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to load candle data.");
+        }
+
+        const data = await res.json();
+
+        if (!data.candles || data.candles.length === 0) {
           setError("No candle data available.");
           return;
         }
 
-        const { o, h, l, c, v, t } = candles;
+        setSource(data.source || "");
 
-        const chartData = t.map((ts, i) => {
-          let dateMs;
-          if (typeof ts === "number") {
-            dateMs = ts < 1e12 ? ts * 1000 : ts;
-          } else {
-            dateMs = Date.parse(ts);
-          }
-
-          const d = new Date(dateMs);
-          const label = d.toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-          });
-
-          return {
-            date: label,
-            open: o[i],
-            high: h[i],
-            low: l[i],
-            close: c[i],
-            volume: v[i],
-          };
-        });
-
-        console.log("✅ Candle points:", chartData.length);
-        setData(chartData);
+        // data.candles is already in the correct format for lightweight-charts
+        seriesRef.current.setData(data.candles);
+        chartRef.current.timeScale().fitContent();
       } catch (err) {
         console.error("Error loading candle data:", err);
-        setError("Unable to load chart data.");
+        setError(err.message || "Unable to load chart data.");
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchCandles();
-  }, [symbol, user]);
+  }, [symbol, range, resolution]);
 
+  // Respect your existing "login required" behavior
   if (!user) {
-    return <p style={{ padding: "1rem" }}>Please log in to view charts.</p>;
-  }
-
-  if (error) {
     return (
-      <p style={{ padding: "1rem", color: "salmon" }}>
-        {error}
-      </p>
+      <div style={cardStyle}>
+        <p style={{ padding: "0.5rem" }}>
+          Please log in to view charts.
+        </p>
+      </div>
     );
   }
 
-  if (data.length === 0) {
-    return <p style={{ padding: "1rem" }}>Loading chart...</p>;
-  }
-
   return (
-    <div style={{ padding: "1rem" }}>
-      <h2>{symbol} – Daily Price &amp; Volume (Real Data)</h2>
-      <ResponsiveContainer width="100%" height={320}>
-        <ComposedChart data={data}>
-          <CartesianGrid stroke="#444" />
-          <XAxis dataKey="date" />
-          <YAxis yAxisId="left" orientation="right" domain={["auto", "auto"]} />
-          <YAxis yAxisId="right" orientation="left" hide domain={["auto", "auto"]} />
-          <Tooltip />
-          <Bar yAxisId="right" dataKey="volume" barSize={16} opacity={0.35} />
-          <Line yAxisId="left" type="monotone" dataKey="close" dot={false} />
-        </ComposedChart>
-      </ResponsiveContainer>
+    <div style={cardStyle}>
+      <div
+        style={{
+          marginBottom: "0.75rem",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          gap: "0.75rem",
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <h2 style={{ margin: 0, fontSize: "1.1rem" }}>
+            {symbol || "—"} – Candlestick Chart ({range}, {resolution})
+          </h2>
+          {source && (
+            <small style={{ opacity: 0.7 }}>
+              Data source:{" "}
+              {source === "cache" ? "Cached (server)" : "Live (Finnhub)"}
+            </small>
+          )}
+        </div>
+
+        {/* Future: you can add range/resolution selectors here */}
+      </div>
+
+      {loading && (
+        <p style={{ fontSize: "0.9rem", opacity: 0.85 }}>
+          Loading chart...
+        </p>
+      )}
+      {error && (
+        <p style={{ fontSize: "0.9rem", color: "crimson" }}>{error}</p>
+      )}
+
+      <div
+        ref={containerRef}
+        style={{
+          width: "100%",
+          height: "400px",
+          borderRadius: "12px",
+          overflow: "hidden",
+        }}
+      />
     </div>
   );
 };
