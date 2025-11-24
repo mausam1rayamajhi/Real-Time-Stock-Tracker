@@ -1,7 +1,7 @@
 // frontend/src/components/ui/SearchBar.js
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "./SearchBar.css"; // optional – only if you create this file
+import "./SearchBar.css"; 
 
 const SearchBar = () => {
   const [query, setQuery] = useState("");
@@ -12,7 +12,7 @@ const SearchBar = () => {
     const trimmed = query.trim().toUpperCase();
     if (!trimmed) return;
 
-    // Navigate to the SearchResults page, which will load data for this symbol
+    // Navigating to the SearchResults page, which will load data for this symbol
     navigate(`/search/${trimmed}`);
   };
 

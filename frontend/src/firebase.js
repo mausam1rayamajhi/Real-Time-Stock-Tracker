@@ -16,7 +16,7 @@ const firebaseConfig = {
 // Initializing Firebase
 const app = initializeApp(firebaseConfig);
 
-// ✅ Exporting Firebase services used throughout app
+// Exporting Firebase services used throughout app
 export const auth = getAuth(app);
 export const provider = new GoogleAuthProvider();
 export const db = getFirestore(app);

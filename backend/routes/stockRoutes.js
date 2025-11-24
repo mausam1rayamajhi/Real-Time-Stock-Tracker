@@ -11,7 +11,7 @@ const API_KEY = process.env.FINNHUB_API_KEY;
 const FINN = "https://finnhub.io/api/v1";
 
 if (!API_KEY) {
-  console.warn("⚠️ FINNHUB_API_KEY is not set. Finnhub routes will fail.");
+  console.warn(" FINNHUB_API_KEY is not set. Finnhub routes will fail.");
 }
 
 /**
@@ -89,7 +89,6 @@ router.get("/search/:query", async (req, res) => {
 /**
  * GET /api/chartdata/:symbol
  * Intraday 1-minute candles (last 60 minutes) – Finnhub
- * (You can keep this if you want intraday later)
  */
 router.get("/chartdata/:symbol", async (req, res) => {
   try {
