@@ -41,10 +41,10 @@ const StockCharts = ({ symbol: propSymbol }) => {
   const [error, setError] = useState("");
   const [source, setSource] = useState("");
 
-  // 1️⃣ Create the chart once (browser-only)
+  // 1Creating the chart once (browser-only)
   useEffect(() => {
     if (!containerRef.current) return;
-    if (chartRef.current) return; // guard for StrictMode double-run
+    if (chartRef.current) return; // guarding for StrictMode double-run
 
     const LW = window.LightweightCharts;
     if (!LW || typeof LW.createChart !== "function") {
@@ -104,7 +104,7 @@ const StockCharts = ({ symbol: propSymbol }) => {
     };
   }, []);
 
-  // 2️⃣ Fetch Yahoo candles AFTER chart exists
+  // Fetching Yahoo candles after chart exists
   useEffect(() => {
     const fetchCandles = async () => {
       if (!symbol || !chartReady || !seriesRef.current || !chartRef.current) {
@@ -131,7 +131,7 @@ const StockCharts = ({ symbol: propSymbol }) => {
 
         let candles = data.candles;
 
-        // Fallback if server ever changes to o/h/l/c/v/t arrays
+        // Fallbacking if server ever changes to o/h/l/c/v/t arrays
         if (!candles && Array.isArray(data.t)) {
           const { o, h, l, c, v, t } = data;
           candles = t.map((ts, i) => {
@@ -171,7 +171,7 @@ const StockCharts = ({ symbol: propSymbol }) => {
     fetchCandles();
   }, [symbol, chartReady]);
 
-  // Respect login requirement
+  // Respecting login requirement
   if (!user) {
     return (
       <div style={cardStyle}>
